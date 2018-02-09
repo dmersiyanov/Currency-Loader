@@ -12,7 +12,7 @@ public class ApiResponse {
         return base;
     }
 
-    public RateObject getRates() {
+    public RateObject getRate() {
         return rates;
     }
 }

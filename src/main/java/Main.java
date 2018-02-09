@@ -1,14 +1,12 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
 
@@ -16,13 +14,20 @@ public class Main {
     private static String toCurrency;
     private static File cache = new File("rates_cache.txt");
     private static String rawRate;
-    static Boolean loading = false;
+    private static boolean isLoading = false;
 
     public static void main(String[] args) throws Exception {
 
         getUserInput();
-        if (!cache.exists()) loadRatesInBackground();
-        else validateCache();
+        if (!cache.exists()) {
+
+            showLoadingProgress();
+            loadRatesInBackground();
+        } else {
+
+            showLoadingProgress();
+            validateCache();
+        }
 
     }
 
@@ -31,7 +36,16 @@ public class Main {
                 .registerTypeAdapter(RateObject.class, new RatesDeserializer())
                 .create();
 
-        return gson.fromJson(rawRate, ApiResponse.class);
+        ApiResponse apiResponse = null;
+        try {
+            apiResponse = gson.fromJson(rawRate, ApiResponse.class);
+        } catch (JsonSyntaxException e) {
+            System.out.println("Ошибка форматирования файла rates_cache");
+
+        }
+
+        return apiResponse;
+
 
     }
 
@@ -63,11 +77,12 @@ public class Main {
                 if (fromCurrency.equals(apiResponse.getBase()) & toCurrency.equals(chachedRate.getName()) & date.equals(currentDate)) {
                     System.out.println("\n" + fromCurrency + " => " + toCurrency + " : " + chachedRate.getRate());
                     isCacheValid = true;
+                    isLoading = false;
                     break;
                 } else continue;
             }
 
-            if (!isCacheValid) getRates();
+            if (!isCacheValid) loadRatesInBackground();
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -76,50 +91,32 @@ public class Main {
     }
 
 
+    private static synchronized void showLoadingProgress() {
+        Thread th = new Thread(() -> {
+            try {
+                isLoading = true;
+                while (isLoading) {
+                    System.out.write(".".getBytes());
+                    Thread.sleep(30);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        th.start();
+    }
+
+
+
     private static void loadRatesInBackground() {
 
-//        ExecutorService e = Executors.newSingleThreadExecutor();
-//        Future f = e.submit(new Runnable(){
-//            public void run(){
-//                while(!Thread.currentThread().isInterrupted()){
-//                    try {
-//                        Thread.sleep(1000); //exclude try/catch for brevity
-//                    } catch (InterruptedException e1) {
-//                        e1.printStackTrace();
-//                    }
-//                    System.out.print(".");
-//                }
-//            }
-//        });
-//        //do excel work
-
-        // SETUP
-        Runnable notifier = new Runnable() {
-            public void run() {
-                System.out.print(".");
-            }
-        };
-
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
-
-        // IN YOUR WORK THREAD
-        scheduler.scheduleAtFixedRate(notifier, 1, 1, TimeUnit.SECONDS);
-        getRates();
-
-        // DO YOUR WORK
-        scheduler.shutdownNow();
-
-
         Thread httpThread = new Thread(() -> {
-            loading = true;
             getRates();
+            isLoading = false;
         });
         httpThread.start();
-
-
-//        f.cancel(true);
-//        e.shutdownNow();
 
     }
 
@@ -152,13 +149,11 @@ public class Main {
                 }
             }
 
-
             in.close();
             con.disconnect();
         } catch (Exception e) {
-            System.out.println(e.toString());
+            System.out.println(" Ошибка соединения с сервером");
 
         }
     }
-
 }

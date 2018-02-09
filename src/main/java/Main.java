@@ -40,21 +40,36 @@ public class Main {
         try {
             apiResponse = gson.fromJson(rawRate, ApiResponse.class);
         } catch (JsonSyntaxException e) {
+            isLoading = false;
             System.out.println("Ошибка форматирования файла rates_cache");
-
         }
 
         return apiResponse;
-
 
     }
 
     private static void getUserInput() throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         System.out.println("Enter from currency");
-        fromCurrency = reader.readLine();
+        String firstCurrency = reader.readLine();
+
+        if (isInputValid(firstCurrency)) {
+            fromCurrency = firstCurrency;
+        } else {
+            System.out.println("Указанная валюта не поддерживается, попробуйте еще раз");
+            System.exit(0);
+        }
+
         System.out.println("Enter to currency");
-        toCurrency = reader.readLine();
+        String secondCurrency = reader.readLine();
+
+        if (isInputValid(secondCurrency)) {
+            toCurrency = secondCurrency;
+        } else {
+            System.out.println("Указанная валюта не поддерживается, попробуйте еще раз");
+            System.exit(0);
+        }
+
         reader.close();
     }
 
@@ -84,8 +99,9 @@ public class Main {
 
             if (!isCacheValid) loadRatesInBackground();
 
-        } catch (FileNotFoundException e) {
+        } catch (Exception e) {
             e.printStackTrace();
+            isLoading = false;
 
         }
     }
@@ -100,8 +116,10 @@ public class Main {
                     Thread.sleep(30);
                 }
             } catch (IOException e) {
+                isLoading = false;
                 e.printStackTrace();
             } catch (InterruptedException e) {
+                isLoading = false;
                 e.printStackTrace();
             }
         });
@@ -117,7 +135,6 @@ public class Main {
             isLoading = false;
         });
         httpThread.start();
-
     }
 
 
@@ -145,6 +162,7 @@ public class Main {
                     fileWriter.close();
 
                 } catch (IOException e) {
+                    isLoading = false;
                     e.printStackTrace();
                 }
             }
@@ -152,8 +170,51 @@ public class Main {
             in.close();
             con.disconnect();
         } catch (Exception e) {
+            isLoading = false;
             System.out.println(" Ошибка соединения с сервером");
 
         }
+    }
+
+    private static String[] curencies = {
+            "USD",
+            "JPY",
+            "BGN",
+            "CZK",
+            "DKK",
+            "GBP",
+            "HUF",
+            "PLN",
+            "RON",
+            "SEK",
+            "CHF",
+            "ISK",
+            "NOK",
+            "HRK",
+            "RUB",
+            "TRY",
+            "AUD",
+            "BRL",
+            "CAD",
+            "CNY",
+            "HKD",
+            "IDR",
+            "ILS",
+            "INR",
+            "KRW",
+            "MXN",
+            "MYR",
+            "NZD",
+            "PHP",
+            "SGD",
+            "THB",
+            "ZAR"};
+
+    private static boolean isInputValid(String curency) {
+        Boolean isCurrencyValid = false;
+        for (String s : curencies) {
+            if (curency.equals(s)) isCurrencyValid = true;
+        }
+        return isCurrencyValid;
     }
 }
